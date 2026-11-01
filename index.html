@@ -201,7 +201,18 @@ function bk(s){return String(s==null?'':s).replace(/\s-\s*د\s*(\d{1,3})(?!\d)/g
 function toast(m){var t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(function(){t.style.display='none'},4000)}
 function busy(on){$('busy').style.display=on?'flex':'none'}
 var API_URL = "https://script.google.com/macros/s/AKfycbyN5KI37FiycpqfRJZiIdc00a_g1lAbVBuNl1oD_WoTy1WpCKiDfEZeygZIMtWY0Iiakw/exec"; /* يوضع هنا رابط النشر /exec لمشروع الكوبي */
-function run(fn,args){return fetch(API_URL,{method:"POST",body:JSON.stringify({fn:fn,args:args||[]})}).then(function(r){return r.json()}).then(function(j){if(j&&j.ok)return ("data" in j)?j.data:null;throw new Error((j&&j.err)||"فشل الاتصال بالسيرفر")},function(){throw new Error("فشل الاتصال بالسيرفر — تأكد من الاتصال بالمحمول/الإنترنت")})}
+/* النقل عبر JSONP (تحميل سكريبت) — يتجاوز قيود CORS اللي بتمنع fetch من github.io لجوجل */
+var _jn = 0;
+function _b64u(s){ try { return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'') } catch(e){ return '' } }
+function run(fn,args){return new Promise(function(res,rej){
+  var cb='_e8cb'+(++_jn)+'_'+(Date.now()%1e8); var s=document.createElement('script'); var done=false,tm=null;
+  function clean(){ if(done)return; done=true; if(tm)clearTimeout(tm); try{delete window[cb]}catch(e){window[cb]=undefined} if(s&&s.parentNode)s.parentNode.removeChild(s) }
+  window[cb]=function(j){ clean(); if(j&&j.ok){ res(('data' in j)?j.data:null) } else { rej(new Error((j&&j.err)||'فشل الاتصال بالسيرفر')) } };
+  s.onerror=function(){ clean(); rej(new Error('فشل الاتصال بالسيرفر — تأكد من الاتصال بالمحمول/الإنترنت')) };
+  tm=setTimeout(function(){ clean(); rej(new Error('انتهت مهلة الاتصال بالسيرفر')) },90000);
+  s.src=API_URL+'?fn='+encodeURIComponent(fn)+'&a='+_b64u(JSON.stringify(args||[]))+'&callback='+cb+'&_='+Date.now();
+  document.head.appendChild(s);
+})}
  
 var STAGE_LBL={'بانتظار التسكين':'بانتظار اعتماد المدير العام','مُسكَّن':'معتمد من المدير العام','مسودة':'قيد الإعداد (الجزء أ والموازنة)','الاستمارة قيد الإعداد':'الجزء (ب) والاستمارة قيد الإعداد','بانتظار الاعتماد النهائي':'بانتظار الاعتماد النهائي لـ PIF'};
 function stLbl(s){return STAGE_LBL[s]||s}

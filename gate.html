@@ -1,21 +1,27 @@
 <!DOCTYPE html><html dir="rtl" lang="ar"><head>
 <script>
-/* جسر توافق: يوجّه نداءات الواجهة إلى Apps Script عبر fetch (بدون جلسة جوجل) */
+/* جسر توافق: نداءات الواجهة إلى Apps Script عبر JSONP (يتجاوز CORS — بدون جلسة جوجل) */
 var API_URL_GAS = 'https://script.google.com/macros/s/AKfycbyN5KI37FiycpqfRJZiIdc00a_g1lAbVBuNl1oD_WoTy1WpCKiDfEZeygZIMtWY0Iiakw/exec';
 (function(){
+  var n=0;
+  function _b64u(s){ try { return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'') } catch(e){ return '' } }
   function call(fn, args, ok, fl){
-    fetch(API_URL_GAS, {method:'POST', body: JSON.stringify({fn: fn, args: args||[]})})
-      .then(function(r){ return r.json() })
-      .then(function(j){
-        if(!j) throw new Error('رد غير صالح من السيرفر');
-        if(!j.ok) throw new Error(j.err || 'فشل الاتصال بالسيرفر');
-        var d = ('data' in j) ? j.data : null;
-        if(fn === 'api_portalGate' && d && d.url){
-          d.url = window.location.origin + window.location.pathname.replace(/gate\.html.*$/, '') + '?' + (String(d.url).split('?')[1] || '');
-        }
-        ok && ok(d);
-      })
-      .catch(function(e){ fl && fl(e) });
+    var cb='_e8cb'+(++n)+'_'+(Date.now()%1e8); var s=document.createElement('script'); var done=false,tm=null;
+    function clean(){ if(done)return; done=true; if(tm)clearTimeout(tm); try{delete window[cb]}catch(e){window[cb]=undefined} if(s&&s.parentNode)s.parentNode.removeChild(s) }
+    window[cb]=function(j){
+      clean();
+      if(!j) return fl && fl(new Error('رد غير صالح من السيرفر'));
+      if(!j.ok) return fl && fl(new Error(j.err || 'فشل الاتصال بالسيرفر'));
+      var d = ('data' in j) ? j.data : null;
+      if(fn === 'api_portalGate' && d && d.url){
+        d.url = window.location.origin + window.location.pathname.replace(/gate\.html.*$/, '') + '?' + (String(d.url).split('?')[1] || '');
+      }
+      ok && ok(d);
+    };
+    s.onerror=function(){ clean(); fl && fl(new Error('فشل الاتصال بالسيرفر')) };
+    tm=setTimeout(function(){ clean(); fl && fl(new Error('انتهت مهلة الاتصال بالسيرفر')) },90000);
+    s.src=API_URL_GAS+'?fn='+encodeURIComponent(fn)+'&a='+_b64u(JSON.stringify(args||[]))+'&callback='+cb+'&_='+Date.now();
+    document.head.appendChild(s);
   }
   function R(ok, fl){ this._ok = ok; this._fl = fl; }
   R.prototype.withSuccessHandler = function(f){ return new R(f, this._fl); };
